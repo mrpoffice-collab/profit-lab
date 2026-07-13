@@ -55,9 +55,9 @@ async function handle(req, res) {
   if (p === '/callback') {
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
-    if (!code) return sendHtml(res, 400, renderError('Jobber did not return an authorization code.'));
+    if (!code) { res.writeHead(302, { Location: url.searchParams.get('error') === 'access_denied' ? '/' : '/connect' }); return res.end(); }
     if (state && !(await db.consumeState(state))) {
-      return sendHtml(res, 400, renderError('This connection link expired. Please try again.'));
+      { res.writeHead(302, { Location: '/connect' }); return res.end(); }
     }
     try {
       const tokens = await jobber.exchangeCode(code);
