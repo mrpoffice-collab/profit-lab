@@ -115,7 +115,7 @@ async function handle(req, res) {
         .box{max-width:520px;padding:40px;} h1{font-size:34px;margin-bottom:14px;} p{font-family:"Segoe UI",Arial,sans-serif;color:#d7e0ea;line-height:1.6;}
         a{display:inline-block;margin-top:22px;background:#0e7a4e;color:#fff;text-decoration:none;font-weight:700;padding:14px 26px;border-radius:6px;font-family:"Segoe UI",Arial,sans-serif;}</style></head>
         <body><div class="box"><h1>You're in.</h1>
-        <p>Welcome to Profit Lab${session.metadata?.plan === 'founding' ? ' as a founding member — your rate is locked forever' : ''}. Your rate is locked in. Right now you have full access to your Profit Truth Report, and you can reconnect for a fresh one anytime. Weekly digests and monthly deep reports are rolling out to founding members first — you will be emailed the day yours turns on.</p>
+        <p>Welcome to Profit Lab${session.metadata?.plan === 'founding' ? ' as a founding member — your rate is locked forever' : ''}. Right now you have full access to your Profit Truth Report, and you can reconnect for a fresh one anytime. Weekly digests and monthly deep reports are rolling out to founding members first — you will be emailed the day yours turns on.</p>
         <a href="${back}">Back to your report</a></div></body></html>`);
     } catch (e) {
       console.error('welcome failed:', e.message);
