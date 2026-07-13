@@ -33,6 +33,10 @@ async function init() {
       state TEXT PRIMARY KEY,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+    ALTER TABLE accounts ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT;
+    ALTER TABLE accounts ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
+    ALTER TABLE accounts ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'none';
+    ALTER TABLE accounts ADD COLUMN IF NOT EXISTS plan TEXT;
   `);
 }
 
@@ -80,11 +84,28 @@ async function failReport(id, error) {
 
 async function getReport(id) {
   const r = await pool.query(
-    `SELECT reports.*, accounts.name AS account_name FROM reports
+    `SELECT reports.*, accounts.name AS account_name, accounts.subscription_status, accounts.plan AS account_plan FROM reports
      LEFT JOIN accounts ON accounts.id = reports.account_id WHERE reports.id = $1`,
     [id]
   );
   return r.rows[0];
+}
+
+async function setSubscription(accountId, { customerId, subscriptionId, status, plan }) {
+  await pool.query(
+    `UPDATE accounts SET stripe_customer_id = COALESCE($2, stripe_customer_id),
+       stripe_subscription_id = COALESCE($3, stripe_subscription_id),
+       subscription_status = $4, plan = COALESCE($5, plan), updated_at = now()
+     WHERE id = $1`,
+    [accountId, customerId, subscriptionId, status, plan]
+  );
+}
+
+async function setSubscriptionByCustomer(customerId, status) {
+  await pool.query(
+    `UPDATE accounts SET subscription_status = $2, updated_at = now() WHERE stripe_customer_id = $1`,
+    [customerId, status]
+  );
 }
 
 async function createState(state) {
@@ -99,4 +120,4 @@ async function consumeState(state) {
   return r.rowCount === 1;
 }
 
-module.exports = { pool, init, upsertAccount, saveTokens, getAccount, createReport, finishReport, failReport, getReport, createState, consumeState };
+module.exports = { pool, init, upsertAccount, saveTokens, getAccount, createReport, finishReport, failReport, getReport, createState, consumeState, setSubscription, setSubscriptionByCustomer };

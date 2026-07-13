@@ -6,6 +6,7 @@ const crypto = require('crypto');
 
 const db = require('./src/db');
 const jobber = require('./src/jobber');
+const stripe = require('./src/stripe');
 const { runAnalysis } = require('./src/analysis');
 const { buildNarrative } = require('./src/advice');
 const { renderReport, renderPending, renderError } = require('./src/report');
@@ -77,6 +78,81 @@ async function handle(req, res) {
       console.error('callback failed:', e.message);
       return sendHtml(res, 500, renderError('The connection to Jobber did not complete. ' + e.message.slice(0, 120)));
     }
+  }
+
+  // --- Subscribe: create Stripe Checkout from a report ---
+  if (p === '/subscribe') {
+    const reportId = url.searchParams.get('report');
+    const plan = url.searchParams.get('plan') === 'standard' ? 'standard' : 'founding';
+    const report = reportId ? await db.getReport(reportId) : null;
+    if (!report) return sendHtml(res, 404, renderError('Start with a free scan so we know which business is subscribing.'));
+    try {
+      const session = await stripe.createCheckoutSession({ accountId: report.account_id, reportId, plan });
+      res.writeHead(302, { Location: session.url });
+      return res.end();
+    } catch (e) {
+      console.error('subscribe failed:', e.message);
+      return sendHtml(res, 500, renderError('Checkout could not start. ' + e.message.slice(0, 120)));
+    }
+  }
+
+  // --- After successful checkout ---
+  if (p === '/welcome') {
+    const sessionId = url.searchParams.get('session_id');
+    try {
+      const session = await stripe.retrieveSession(sessionId);
+      if (session.payment_status === 'paid' && session.metadata?.account_id) {
+        await db.setSubscription(Number(session.metadata.account_id), {
+          customerId: session.customer,
+          subscriptionId: session.subscription,
+          status: 'active',
+          plan: session.metadata.plan,
+        });
+      }
+      const back = session.metadata?.report_id ? `/r/${session.metadata.report_id}` : '/';
+      return sendHtml(res, 200, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Welcome to Profit Lab</title>
+        <style>body{font-family:Georgia,serif;background:#16324f;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center;}
+        .box{max-width:520px;padding:40px;} h1{font-size:34px;margin-bottom:14px;} p{font-family:"Segoe UI",Arial,sans-serif;color:#d7e0ea;line-height:1.6;}
+        a{display:inline-block;margin-top:22px;background:#0e7a4e;color:#fff;text-decoration:none;font-weight:700;padding:14px 26px;border-radius:6px;font-family:"Segoe UI",Arial,sans-serif;}</style></head>
+        <body><div class="box"><h1>You're in.</h1>
+        <p>Welcome to Profit Lab${session.metadata?.plan === 'founding' ? ' as a founding member — your rate is locked forever' : ''}. Your account is now monitored continuously: fresh truth as your season unfolds, starting with the report you just saw.</p>
+        <a href="${back}">Back to your report</a></div></body></html>`);
+    } catch (e) {
+      console.error('welcome failed:', e.message);
+      return sendHtml(res, 500, renderError('We could not confirm the subscription. If you were charged, email us and we will fix it immediately.'));
+    }
+  }
+
+  // --- Stripe webhook (renewals, cancellations) ---
+  if (p === '/stripe/webhook' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', c => raw += c);
+    req.on('end', async () => {
+      try {
+        if (!stripe.verifyWebhook(raw, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET)) {
+          return send(res, 400, 'text/plain', 'bad signature');
+        }
+        const event = JSON.parse(raw);
+        if (event.type === 'checkout.session.completed') {
+          const s = event.data.object;
+          if (s.metadata?.account_id) {
+            await db.setSubscription(Number(s.metadata.account_id), {
+              customerId: s.customer, subscriptionId: s.subscription, status: 'active', plan: s.metadata.plan,
+            });
+          }
+        } else if (event.type === 'customer.subscription.deleted') {
+          await db.setSubscriptionByCustomer(event.data.object.customer, 'canceled');
+        } else if (event.type === 'customer.subscription.updated') {
+          const sub = event.data.object;
+          await db.setSubscriptionByCustomer(sub.customer, sub.status === 'active' ? 'active' : sub.status);
+        }
+        send(res, 200, 'application/json', '{"received":true}');
+      } catch (e) {
+        console.error('webhook error:', e.message);
+        send(res, 500, 'text/plain', 'error');
+      }
+    });
+    return;
   }
 
   // --- Report pages ---
