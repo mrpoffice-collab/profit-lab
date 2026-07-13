@@ -11,6 +11,7 @@ const { runAnalysis } = require('./src/analysis');
 const { buildNarrative } = require('./src/advice');
 const { renderReport, renderPending, renderError } = require('./src/report');
 const email = require('./src/email');
+const { runDaily } = require('./jobs/daily');
 
 const PORT = process.env.PORT || 4700;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -48,6 +49,16 @@ async function handle(req, res) {
   const p = url.pathname;
 
   if (p === '/health') return send(res, 200, 'application/json', JSON.stringify({ ok: true, service: 'profit-lab' }));
+
+  // --- Scheduled job trigger (called by GitHub Actions daily) ---
+  if (p === '/jobs/daily') {
+    if (!process.env.JOB_SECRET || url.searchParams.get('key') !== process.env.JOB_SECRET) {
+      return send(res, 403, 'text/plain', 'forbidden');
+    }
+    const force = url.searchParams.get('force') === '1';
+    runDaily({ force }).catch(e => console.error('daily run failed:', e.message));
+    return send(res, 202, 'application/json', '{"started":true}');
+  }
 
   // --- Connect Jobber (start OAuth) ---
   if (p === '/connect') {

@@ -9,14 +9,13 @@ const email = require('../src/email');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-(async () => {
+async function runDaily({ force = false, endPool = false } = {}) {
   await db.init();
   const isMonday = new Date().getUTCDay() === 1;
-  const force = process.argv.includes('--force'); // manual test runs
   if (!isMonday && !force) {
     console.log('not digest day; nothing to do');
-    await db.pool.end();
-    return;
+    if (endPool) await db.pool.end();
+    return { ran: false };
   }
 
   const subs = await db.activeSubscribers();
@@ -50,6 +49,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
       console.error(`${account.name}: digest failed —`, e.message);
     }
   }
-  await db.pool.end();
+  if (endPool) await db.pool.end();
   console.log('daily job complete');
-})().catch(e => { console.error('daily job crashed:', e.message); process.exit(1); });
+  return { ran: true, subscribers: subs.length };
+}
+
+module.exports = { runDaily };
+
+if (require.main === module) {
+  runDaily({ force: process.argv.includes('--force'), endPool: true })
+    .catch(e => { console.error('daily job crashed:', e.message); process.exit(1); });
+}

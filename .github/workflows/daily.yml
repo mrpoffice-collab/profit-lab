@@ -1,0 +1,11 @@
+name: Daily digest
+on:
+  schedule:
+    - cron: '10 14 * * *'   # 14:10 UTC daily (~8-9am Central)
+  workflow_dispatch: {}
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Profit Lab daily job
+        run: curl -fsS "https://profit-lab-6uyt.onrender.com/jobs/daily?key=${{ secrets.JOB_SECRET }}"
