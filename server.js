@@ -1,58 +1,115 @@
-// Profit Lab — web server (first slice: public site + live demo)
-// Zero dependencies by design: portable Node, runs anywhere.
+// Profit Lab — web server: public site, Connect Jobber flow, free scan, reports.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
+const db = require('./src/db');
+const jobber = require('./src/jobber');
+const { runAnalysis } = require('./src/analysis');
+const { buildNarrative } = require('./src/advice');
+const { renderReport, renderPending, renderError } = require('./src/report');
 
 const PORT = process.env.PORT || 4700;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css',
-  '.js': 'text/javascript',
-  '.png': 'image/png',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.json': 'application/json',
+  '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript',
+  '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json',
 };
 
-const ROUTES = {
-  '/': 'index.html',
-  '/demo': 'demo.html',
-};
+function send(res, status, type, body) {
+  res.writeHead(status, { 'Content-Type': type });
+  res.end(body);
+}
+const sendHtml = (res, status, body) => send(res, status, 'text/html; charset=utf-8', body);
 
-const server = http.createServer((req, res) => {
+async function generateReport(reportId, accountId) {
+  try {
+    const account = await db.getAccount(accountId);
+    const analysis = await runAnalysis(account);
+    const narrative = await buildNarrative(analysis, account.name || 'this business');
+    await db.finishReport(reportId, analysis, narrative);
+    console.log(`report ${reportId} ready for account ${accountId}`);
+  } catch (e) {
+    console.error(`report ${reportId} failed:`, e.message);
+    await db.failReport(reportId, e.message).catch(() => {});
+  }
+}
+
+async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  let pathname = url.pathname;
+  const p = url.pathname;
 
-  if (pathname === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, service: 'profit-lab' }));
-    return;
+  if (p === '/health') return send(res, 200, 'application/json', JSON.stringify({ ok: true, service: 'profit-lab' }));
+
+  // --- Connect Jobber (start OAuth) ---
+  if (p === '/connect') {
+    const state = crypto.randomUUID();
+    await db.createState(state);
+    res.writeHead(302, { Location: jobber.authUrl(state) });
+    return res.end();
   }
 
-  const mapped = ROUTES[pathname] || pathname.slice(1);
+  // --- OAuth callback from Jobber ---
+  if (p === '/callback') {
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+    if (!code) return sendHtml(res, 400, renderError('Jobber did not return an authorization code.'));
+    if (state && !(await db.consumeState(state))) {
+      return sendHtml(res, 400, renderError('This connection link expired. Please try again.'));
+    }
+    try {
+      const tokens = await jobber.exchangeCode(code);
+      const info = await jobber.rawGraphql(tokens.access_token, `query { account { id name } }`);
+      const parsed = JSON.parse(info.body);
+      const acct = parsed.data.account;
+      const account = await db.upsertAccount({
+        jobberAccountId: acct.id, name: acct.name,
+        accessToken: tokens.access_token, refreshToken: tokens.refresh_token,
+      });
+      const reportId = crypto.randomUUID();
+      await db.createReport(reportId, account.id);
+      generateReport(reportId, account.id); // async — page polls
+      res.writeHead(302, { Location: `/r/${reportId}` });
+      return res.end();
+    } catch (e) {
+      console.error('callback failed:', e.message);
+      return sendHtml(res, 500, renderError('The connection to Jobber did not complete. ' + e.message.slice(0, 120)));
+    }
+  }
+
+  // --- Report pages ---
+  const reportMatch = p.match(/^\/r\/([0-9a-f-]{36})$/);
+  if (reportMatch) {
+    const report = await db.getReport(reportMatch[1]);
+    if (!report) return sendHtml(res, 404, renderError('Report not found.'));
+    if (report.status === 'pending') return sendHtml(res, 200, renderPending(report.id));
+    if (report.status === 'error') return sendHtml(res, 200, renderError('We could not finish reading this account: ' + (report.error || 'unknown error')));
+    return sendHtml(res, 200, renderReport(report));
+  }
+
+  // --- Static site ---
+  const ROUTES = { '/': 'index.html', '/demo': 'demo.html' };
+  const mapped = ROUTES[p] || p.slice(1);
   const filePath = path.join(PUBLIC_DIR, mapped);
-
-  // Never serve outside public/
-  if (!filePath.startsWith(PUBLIC_DIR)) {
-    res.writeHead(403).end('Forbidden');
-    return;
-  }
+  if (!filePath.startsWith(PUBLIC_DIR)) return send(res, 403, 'text/plain', 'Forbidden');
 
   fs.readFile(filePath, (err, data) => {
-    if (err) {
-      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end('<h1 style="font-family:sans-serif">404 — page not found. <a href="/">Profit Lab home</a></h1>');
-      return;
-    }
+    if (err) return sendHtml(res, 404, '<h1 style="font-family:sans-serif">404 — <a href="/">Profit Lab home</a></h1>');
     const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
-    res.end(data);
+    send(res, 200, MIME[ext] || 'application/octet-stream', data);
   });
-});
+}
 
-server.listen(PORT, () => {
-  console.log(`Profit Lab listening on port ${PORT}`);
+db.init().then(() => {
+  http.createServer((req, res) => {
+    handle(req, res).catch(e => {
+      console.error('request error:', e);
+      try { sendHtml(res, 500, renderError('Unexpected error.')); } catch {}
+    });
+  }).listen(PORT, () => console.log(`Profit Lab listening on ${PORT}`));
+}).catch(e => {
+  console.error('DB init failed:', e);
+  process.exit(1);
 });
