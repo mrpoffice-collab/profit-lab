@@ -123,7 +123,7 @@ function renderReport(report) {
     ${report.subscription_status === 'active' ? `
     <div style="border:2px solid var(--green);border-radius:8px;padding:20px 24px;margin-top:28px;background:var(--green-soft);">
       <strong style="color:var(--navy);">You're a Profit Lab ${report.account_plan === 'founding' ? 'founding ' : ''}member.</strong>
-      <span style="color:var(--ink-2);"> This account is monitored continuously — your next truth arrives on schedule.</span>
+      <span style="color:var(--ink-2);"> Your rate is locked forever. Weekly digests and monthly deep reports are rolling out to founding members first — you will get an email the day yours turns on.</span>
     </div>` : `
     <div style="border:2px solid var(--green);border-radius:8px;padding:24px 28px;margin-top:28px;">
       <h2 style="margin:0 0 8px;">Keep the truth coming</h2>
