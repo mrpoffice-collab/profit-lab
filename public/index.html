@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profit Lab — Know what every hour actually earns</title>
+<meta name="description" content="Profit Lab connects to your Jobber account and shows you which work makes money, which quietly doesn't, and what to change. Your own numbers, made plain. A Code63 Labs product.">
+<style>
+  :root{
+    --ink:#141a24; --ink-2:#333d4d; --navy:#16324f; --green:#0e7a4e;
+    --green-soft:#e8f4ee; --red:#a33327; --amber-soft:#fdf6e9;
+    --line:#d8dee6; --paper:#fff; --wash:#f5f7f9;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:"Segoe UI",-apple-system,Arial,sans-serif;color:var(--ink);background:var(--paper);line-height:1.6;font-size:17px;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 24px;}
+  nav{border-bottom:1px solid var(--line);background:var(--paper);}
+  .nav-inner{display:flex;justify-content:space-between;align-items:center;padding:16px 0;}
+  .brand{font-family:Georgia,serif;font-size:22px;font-weight:700;color:var(--navy);text-decoration:none;}
+  .brand span{color:var(--green);}
+  .nav-links a{color:var(--ink-2);text-decoration:none;margin-left:24px;font-size:15px;}
+  .nav-links a.cta{color:#fff;background:var(--green);padding:8px 16px;border-radius:6px;font-weight:600;}
+  .hero{background:var(--navy);color:#fff;padding:72px 0 64px;}
+  .hero h1{font-family:Georgia,serif;font-size:44px;line-height:1.15;max-width:720px;margin-bottom:18px;}
+  .hero h1 em{color:#7fd4a8;font-style:normal;}
+  .hero p.sub{font-size:20px;max-width:640px;color:#d7e0ea;margin-bottom:30px;}
+  .btn{display:inline-block;text-decoration:none;font-weight:700;border-radius:6px;padding:14px 26px;font-size:17px;}
+  .btn.primary{background:var(--green);color:#fff;}
+  .btn.ghost{border:2px solid #d7e0ea;color:#fff;margin-left:12px;}
+  .statbar{background:var(--wash);border-bottom:1px solid var(--line);}
+  .statbar-inner{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:28px 0;}
+  .stat .n{font-family:Georgia,serif;font-size:30px;font-weight:700;color:var(--navy);}
+  .stat .l{font-size:14px;color:var(--ink-2);}
+  section{padding:64px 0 8px;}
+  h2{font-family:Georgia,serif;font-size:30px;color:var(--navy);margin-bottom:12px;}
+  .lede{font-size:18px;color:var(--ink-2);max-width:680px;margin-bottom:36px;}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:24px;}
+  .step{border:1px solid var(--line);border-radius:8px;padding:24px;}
+  .step .num{width:34px;height:34px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;margin-bottom:14px;}
+  .step h3{font-size:18px;color:var(--navy);margin-bottom:8px;}
+  .step p{font-size:15px;color:var(--ink-2);}
+  ul.gets{list-style:none;max-width:720px;}
+  ul.gets li{padding:12px 0 12px 34px;position:relative;border-bottom:1px solid var(--line);}
+  ul.gets li::before{content:"✓";position:absolute;left:4px;color:var(--green);font-weight:700;}
+  .demo-band{background:var(--green-soft);border:1px solid var(--line);border-radius:10px;padding:36px;margin:48px 0;display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap;}
+  .demo-band h2{margin-bottom:6px;}
+  .demo-band p{color:var(--ink-2);max-width:520px;}
+  .honest{background:var(--wash);border-left:5px solid var(--navy);padding:24px 28px;border-radius:0 8px 8px 0;max-width:760px;margin-bottom:24px;}
+  .honest p{margin-bottom:10px;font-size:16px;}
+  .pricing{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:720px;margin-bottom:24px;}
+  .price-card{border:1px solid var(--line);border-radius:8px;padding:28px;}
+  .price-card.founding{border-color:var(--green);border-width:2px;}
+  .price-card .tag{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green);}
+  .price-card .price{font-family:Georgia,serif;font-size:40px;color:var(--navy);margin:8px 0 2px;}
+  .price-card .per{font-size:14px;color:var(--ink-2);margin-bottom:14px;}
+  .price-card p{font-size:15px;color:var(--ink-2);}
+  footer{border-top:1px solid var(--line);margin-top:64px;padding:32px 0 48px;font-size:14px;color:var(--ink-2);}
+  footer .brandline{font-family:Georgia,serif;color:var(--navy);font-size:16px;margin-bottom:6px;}
+  @media (max-width:760px){
+    .hero h1{font-size:32px;}
+    .statbar-inner,.steps,.pricing{grid-template-columns:1fr;}
+    .btn.ghost{margin-left:0;margin-top:12px;}
+  }
+</style>
+</head>
+<body>
+
+<nav><div class="wrap nav-inner">
+  <a class="brand" href="/">Profit<span> Lab</span></a>
+  <div class="nav-links">
+    <a href="/demo">Live demo</a>
+    <a class="cta" href="#early-access">Get early access</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="wrap">
+  <h1>Busy isn&rsquo;t the same as profitable. <em>Your numbers know the difference.</em></h1>
+  <p class="sub">Profit Lab connects to your Jobber account and shows you what every hour actually earns — which work makes money, which quietly doesn&rsquo;t, and exactly what to change. No spreadsheets. No guru advice. Your own numbers, made plain.</p>
+  <a class="btn primary" href="/demo">See a real report</a>
+  <a class="btn ghost" href="#how">How it works</a>
+</div></div>
+
+<div class="statbar"><div class="wrap statbar-inner">
+  <div class="stat"><div class="n">60%</div><div class="l">of contractors don&rsquo;t know their actual profit margin on completed jobs</div></div>
+  <div class="stat"><div class="n">10&ndash;30%</div><div class="l">typical underpricing — without the owner knowing it</div></div>
+  <div class="stat"><div class="n">2 min</div><div class="l">to connect your Jobber account and see your own numbers talk</div></div>
+</div></div>
+
+<section id="how"><div class="wrap">
+  <h2>How it works</h2>
+  <p class="lede">You already record everything Profit Lab needs — every job, visit, and invoice lives in your Jobber account. We just make it talk.</p>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><h3>Connect</h3><p>Click &ldquo;Connect Jobber&rdquo; and approve read-only access — the same two-minute flow as signing in with Google. We never modify anything in your account.</p></div>
+    <div class="step"><div class="num">2</div><h3>See your profit truth</h3><p>Profit Lab computes what every service, client, and job actually earns per crew hour — and writes the findings in plain English, with the exact numbers to fix.</p></div>
+    <div class="step"><div class="num">3</div><h3>Keep the truth coming</h3><p>A weekly digest in your inbox, a monthly deep report, and alerts when a new client or service starts leaking — because pricing leaks regrow every season.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>What the report tells you</h2>
+  <ul class="gets">
+    <li><strong>Earnings per hour, by service line</strong> — mowing vs. cleanups vs. installs, net of materials, from your real visit times</li>
+    <li><strong>The clients quietly costing you money</strong> — who earns you $85/hour and who earns you $29</li>
+    <li><strong>Grandfathered rates that never grew up</strong> — with the number to quote instead</li>
+    <li><strong>Finished work you haven&rsquo;t billed yet</strong> — money already earned, waiting on a Send button</li>
+    <li><strong>What to do about each one</strong> — plain-English advice with dollar amounts, not charts to decode</li>
+  </ul>
+</div></section>
+
+<div class="wrap"><div class="demo-band">
+  <div>
+    <h2>See it before you connect anything</h2>
+    <p>This is a complete, real Profit Truth Report for a fictional lawn care company — every number computed by the actual engine. What it found is what we&rsquo;ll look for in your business.</p>
+  </div>
+  <a class="btn primary" href="/demo">View the live demo report</a>
+</div></div>
+
+<section id="early-access"><div class="wrap">
+  <h2>Early access — founding members</h2>
+  <p class="lede">Profit Lab is onboarding its first businesses now. Founding members get the full product at a rate that never increases, in exchange for honest feedback.</p>
+  <div class="pricing">
+    <div class="price-card founding">
+      <div class="tag">Founding member — first 20 businesses</div>
+      <div class="price">$39</div><div class="per">per month, locked forever</div>
+      <p>Full product: connected monitoring, weekly digest, monthly deep report, plain-English advice. Your rate never changes as long as you stay.</p>
+    </div>
+    <div class="price-card">
+      <div class="tag">Standard</div>
+      <div class="price">$59</div><div class="per">per month</div>
+      <p>Same product, standard rate — what everyone pays once the founding seats are gone.</p>
+    </div>
+  </div>
+  <p><a class="btn primary" href="mailto:mrpoffice@gmail.com?subject=Profit%20Lab%20early%20access">Email us for early access</a></p>
+</div></section>
+
+<section><div class="wrap">
+  <h2>The honest fine print</h2>
+  <div class="honest">
+    <p><strong>Read-only, always.</strong> Profit Lab can see your jobs, hours, and invoices. It cannot change, add, or delete anything in your Jobber account.</p>
+    <p><strong>We read your numbers, not your rolodex.</strong> Your clients&rsquo; contact information is never used for anything except computing your per-client profitability. Ever.</p>
+    <p><strong>No hype.</strong> No courses, no coaching upsell, no &ldquo;scale to 7 figures.&rdquo; The product is your own data, made plain — if it doesn&rsquo;t pay for itself, cancel in two clicks.</p>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="brandline">Profit Lab — a <strong>Code63 Labs</strong> product</div>
+  <div>Works with Jobber. Not affiliated with or endorsed by Jobber. &copy; 2026 Code63 Labs.</div>
+</div></footer>
+
+</body>
+</html>

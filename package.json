@@ -1,0 +1,13 @@
+{
+  "name": "profit-lab",
+  "version": "0.1.0",
+  "description": "Profit Lab — profit intelligence for hour-sellers. A Code63 Labs product.",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
