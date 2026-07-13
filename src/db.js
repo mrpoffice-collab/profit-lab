@@ -37,6 +37,8 @@ async function init() {
     ALTER TABLE accounts ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
     ALTER TABLE accounts ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'none';
     ALTER TABLE accounts ADD COLUMN IF NOT EXISTS plan TEXT;
+    ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email TEXT;
+    ALTER TABLE accounts ADD COLUMN IF NOT EXISTS last_digest_at TIMESTAMPTZ;
   `);
 }
 
@@ -101,6 +103,20 @@ async function setSubscription(accountId, { customerId, subscriptionId, status, 
   );
 }
 
+async function setEmail(accountId, email) {
+  if (!email) return;
+  await pool.query('UPDATE accounts SET email = $2, updated_at = now() WHERE id = $1', [accountId, email]);
+}
+
+async function activeSubscribers() {
+  const r = await pool.query("SELECT * FROM accounts WHERE subscription_status = 'active'");
+  return r.rows;
+}
+
+async function markDigestSent(accountId) {
+  await pool.query('UPDATE accounts SET last_digest_at = now() WHERE id = $1', [accountId]);
+}
+
 async function setSubscriptionByCustomer(customerId, status) {
   await pool.query(
     `UPDATE accounts SET subscription_status = $2, updated_at = now() WHERE stripe_customer_id = $1`,
@@ -120,4 +136,4 @@ async function consumeState(state) {
   return r.rowCount === 1;
 }
 
-module.exports = { pool, init, upsertAccount, saveTokens, getAccount, createReport, finishReport, failReport, getReport, createState, consumeState, setSubscription, setSubscriptionByCustomer };
+module.exports = { pool, init, upsertAccount, saveTokens, getAccount, createReport, finishReport, failReport, getReport, createState, consumeState, setSubscription, setSubscriptionByCustomer, setEmail, activeSubscribers, markDigestSent };

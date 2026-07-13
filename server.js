@@ -10,6 +10,7 @@ const stripe = require('./src/stripe');
 const { runAnalysis } = require('./src/analysis');
 const { buildNarrative } = require('./src/advice');
 const { renderReport, renderPending, renderError } = require('./src/report');
+const email = require('./src/email');
 
 const PORT = process.env.PORT || 4700;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -32,6 +33,10 @@ async function generateReport(reportId, accountId) {
     const narrative = await buildNarrative(analysis, account.name || 'this business');
     await db.finishReport(reportId, analysis, narrative);
     console.log(`report ${reportId} ready for account ${accountId}`);
+    const fresh = await db.getAccount(accountId);
+    if (fresh.email) {
+      email.reportReady({ to: fresh.email, accountName: fresh.name, reportId, headline: narrative.headline }).catch(e => console.error('report email failed:', e.message));
+    }
   } catch (e) {
     console.error(`report ${reportId} failed:`, e.message);
     await db.failReport(reportId, e.message).catch(() => {});
@@ -108,6 +113,7 @@ async function handle(req, res) {
           status: 'active',
           plan: session.metadata.plan,
         });
+        await db.setEmail(Number(session.metadata.account_id), session.customer_details?.email);
       }
       const back = session.metadata?.report_id ? `/r/${session.metadata.report_id}` : '/';
       return sendHtml(res, 200, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Welcome to Profit Lab</title>
@@ -139,6 +145,7 @@ async function handle(req, res) {
             await db.setSubscription(Number(s.metadata.account_id), {
               customerId: s.customer, subscriptionId: s.subscription, status: 'active', plan: s.metadata.plan,
             });
+            await db.setEmail(Number(s.metadata.account_id), s.customer_details?.email);
           }
         } else if (event.type === 'customer.subscription.deleted') {
           await db.setSubscriptionByCustomer(event.data.object.customer, 'canceled');
