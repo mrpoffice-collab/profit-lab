@@ -173,6 +173,34 @@ async function handle(req, res) {
     return;
   }
 
+  // --- Jobber webhook (APP_DISCONNECT) ---
+  if (p === '/jobber/webhook' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', c => raw += c);
+    req.on('end', async () => {
+      try {
+        const sig = req.headers['x-jobber-hmac-sha256'];
+        const expected = crypto.createHmac('sha256', process.env.JOBBER_CLIENT_SECRET).update(raw).digest('base64');
+        if (!sig || sig !== expected) return send(res, 401, 'text/plain', 'bad signature');
+        const event = JSON.parse(raw);
+        const topic = event.data?.webHookEvent?.topic;
+        const jobberAccountId = event.data?.webHookEvent?.accountId;
+        if (topic === 'APP_DISCONNECT' && jobberAccountId) {
+          await db.pool.query(
+            "UPDATE accounts SET subscription_status = CASE WHEN subscription_status='active' THEN 'disconnected_active' ELSE 'disconnected' END, access_token='', refresh_token='', updated_at=now() WHERE jobber_account_id = $1",
+            [jobberAccountId]
+          );
+          console.log('APP_DISCONNECT processed for', jobberAccountId);
+        }
+        send(res, 200, 'application/json', '{"ok":true}');
+      } catch (e) {
+        console.error('jobber webhook error:', e.message);
+        send(res, 500, 'text/plain', 'error');
+      }
+    });
+    return;
+  }
+
   // --- Report pages ---
   const reportMatch = p.match(/^\/r\/([0-9a-f-]{36})$/);
   if (reportMatch) {
@@ -184,7 +212,7 @@ async function handle(req, res) {
   }
 
   // --- Static site ---
-  const ROUTES = { '/': 'index.html', '/demo': 'demo.html' };
+  const ROUTES = { '/': 'index.html', '/demo': 'demo.html', '/terms': 'terms.html', '/privacy': 'privacy.html' };
   const mapped = ROUTES[p] || p.slice(1);
   const filePath = path.join(PUBLIC_DIR, mapped);
   if (!filePath.startsWith(PUBLIC_DIR)) return send(res, 403, 'text/plain', 'Forbidden');
