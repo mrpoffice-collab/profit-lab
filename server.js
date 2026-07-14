@@ -173,6 +173,38 @@ async function handle(req, res) {
     return;
   }
 
+  // --- Disconnect from our side (uses Jobber's appDisconnect mutation) ---
+  if (p === '/disconnect') {
+    const reportId = url.searchParams.get('report');
+    const report = reportId ? await db.getReport(reportId) : null;
+    if (!report) return sendHtml(res, 404, renderError('We could not find that account.'));
+    if (url.searchParams.get('confirm') !== '1') {
+      return sendHtml(res, 200, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Disconnect — Profit Lab</title>
+        <style>body{font-family:"Segoe UI",Arial,sans-serif;max-width:560px;margin:80px auto;padding:0 20px;color:#141a24;line-height:1.6;}
+        h1{font-family:Georgia,serif;color:#16324f;} .btn{display:inline-block;background:#a33327;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:6px;}
+        .ghost{margin-left:14px;color:#333d4d;text-decoration:none;}</style></head><body>
+        <h1>Disconnect Profit Lab?</h1>
+        <p>This revokes Profit Lab's access to the <strong>${(report.account_name||'connected')}</strong> Jobber account immediately. Your past reports stay at their links; monitoring and future reports stop.</p>
+        <a class="btn" href="/disconnect?report=${report.id}&confirm=1">Yes, disconnect</a>
+        <a class="ghost" href="/r/${report.id}">Never mind</a></body></html>`);
+    }
+    try {
+      const account = await db.getAccount(report.account_id);
+      await jobber.appDisconnect(account);
+      await db.pool.query(
+        "UPDATE accounts SET subscription_status = CASE WHEN subscription_status='active' THEN 'disconnected_active' ELSE 'disconnected' END, access_token='', refresh_token='', updated_at=now() WHERE id = $1",
+        [account.id]
+      );
+      return sendHtml(res, 200, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Disconnected — Profit Lab</title>
+        <style>body{font-family:"Segoe UI",Arial,sans-serif;max-width:560px;margin:80px auto;padding:0 20px;color:#141a24;line-height:1.6;}
+        h1{font-family:Georgia,serif;color:#16324f;}</style></head><body>
+        <h1>Disconnected.</h1><p>Profit Lab no longer has access to this Jobber account. Reconnect anytime with a <a href="/connect" style="color:#0e7a4e;font-weight:700;">free scan</a> — your history will be waiting.</p></body></html>`);
+    } catch (e) {
+      console.error('disconnect failed:', e.message);
+      return sendHtml(res, 500, renderError('Disconnect did not complete: ' + e.message.slice(0, 100)));
+    }
+  }
+
   // --- Jobber webhook (APP_DISCONNECT) ---
   if (p === '/jobber/webhook' && req.method === 'POST') {
     let raw = '';

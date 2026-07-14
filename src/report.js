@@ -132,7 +132,7 @@ function renderReport(report) {
       <a href="/subscribe?report=${report.id}&plan=standard" style="display:inline-block;margin-left:10px;color:var(--navy);text-decoration:none;font-weight:600;padding:13px 10px;">or standard at $59/mo &rarr;</a>
       <div style="font-size:13px;color:var(--ink-2);margin-top:10px;">Cancel anytime in two clicks. If it doesn't pay for itself, don't keep it.</div>
     </div>`}
-    <div class="method"><strong>How this was computed:</strong> revenue = invoiced + completed-but-uninvoiced work per job; crew hours = actual visit start/end times from your schedule; materials = expenses linked to jobs. Data read via the Jobber API — nothing in your account was modified. Advice written by Profit Lab's analysis engine from your numbers only.</div>
+    <div class="method"><strong>How this was computed:</strong> revenue = invoiced + completed-but-uninvoiced work per job; crew hours = actual visit start/end times from your schedule; materials = expenses linked to jobs. Data read via the Jobber API — nothing in your account was modified. Advice written by Profit Lab's analysis engine from your numbers only. <a href="/disconnect?report=${report.id}" style="color:var(--ink-2);">Disconnect Profit Lab</a>.</div>
   </div>`);
 }
 

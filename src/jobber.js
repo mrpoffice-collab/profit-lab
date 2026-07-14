@@ -63,4 +63,11 @@ async function graphql(account, query, variables = {}) {
   return parsed.data;
 }
 
-module.exports = { authUrl, exchangeCode, refresh, rawGraphql, graphql };
+async function appDisconnect(account) {
+  const d = await graphql(account, `mutation { appDisconnect { app { name } userErrors { message } } }`);
+  const errs = d.appDisconnect?.userErrors;
+  if (errs && errs.length) throw new Error('appDisconnect: ' + JSON.stringify(errs));
+  return true;
+}
+
+module.exports = { authUrl, exchangeCode, refresh, rawGraphql, graphql, appDisconnect };
