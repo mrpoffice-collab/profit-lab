@@ -47,7 +47,11 @@ async function upsertAccount({ jobberAccountId, name, accessToken, refreshToken 
     `INSERT INTO accounts (jobber_account_id, name, access_token, refresh_token)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (jobber_account_id)
-     DO UPDATE SET name = $2, access_token = $3, refresh_token = $4, updated_at = now()
+     DO UPDATE SET name = $2, access_token = $3, refresh_token = $4, updated_at = now(),
+       subscription_status = CASE
+         WHEN accounts.subscription_status = 'disconnected_active' THEN 'active'
+         WHEN accounts.subscription_status = 'disconnected' THEN 'none'
+         ELSE accounts.subscription_status END
      RETURNING *`,
     [jobberAccountId, name, accessToken, refreshToken]
   );
