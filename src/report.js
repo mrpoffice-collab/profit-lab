@@ -128,7 +128,7 @@ function renderReport(report) {
     <div style="border:2px solid var(--green);border-radius:8px;padding:24px 28px;margin-top:28px;">
       <h2 style="margin:0 0 8px;">Keep the truth coming</h2>
       <p style="color:var(--ink-2);margin-bottom:16px;">This report is a snapshot. Pricing leaks regrow every season — new clients, new services, unbilled work piling up. Profit Lab watches continuously: a weekly digest, a monthly deep report, and alerts when something starts leaking.</p>
-      <a href="/subscribe?report=${report.id}&plan=founding" style="display:inline-block;background:var(--green);color:#fff;text-decoration:none;font-weight:700;padding:13px 22px;border-radius:6px;">Founding member — $39/mo, locked forever</a>
+      <a href="/subscribe?report=${report.id}&plan=founding" style="display:inline-block;background:var(--green);color:#fff;text-decoration:none;font-weight:700;padding:13px 22px;border-radius:6px;">Founding member — $39/mo, locked forever${typeof report.foundingSeatsLeft === "number" && report.foundingSeatsLeft <= 10 ? ` (${report.foundingSeatsLeft} seats left)` : ""}</a>
       <a href="/subscribe?report=${report.id}&plan=standard" style="display:inline-block;margin-left:10px;color:var(--navy);text-decoration:none;font-weight:600;padding:13px 10px;">or standard at $59/mo &rarr;</a>
       <div style="font-size:13px;color:var(--ink-2);margin-top:10px;">Cancel anytime in two clicks. If it doesn't pay for itself, don't keep it.</div>
     </div>`}

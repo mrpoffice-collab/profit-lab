@@ -99,7 +99,11 @@ async function handle(req, res) {
   // --- Subscribe: create Stripe Checkout from a report ---
   if (p === '/subscribe') {
     const reportId = url.searchParams.get('report');
-    const plan = url.searchParams.get('plan') === 'standard' ? 'standard' : 'founding';
+    let plan = url.searchParams.get('plan') === 'standard' ? 'standard' : 'founding';
+    if (plan === 'founding') {
+      const seats = await db.pool.query("SELECT count(*)::int AS n FROM accounts WHERE plan = 'founding' AND subscription_status IN ('active','disconnected_active')");
+      if (seats.rows[0].n >= 20) plan = 'standard';
+    }
     const report = reportId ? await db.getReport(reportId) : null;
     if (!report) return sendHtml(res, 404, renderError('Start with a free scan so we know which business is subscribing.'));
     try {
@@ -219,7 +223,7 @@ async function handle(req, res) {
         const jobberAccountId = event.data?.webHookEvent?.accountId;
         if (topic === 'APP_DISCONNECT' && jobberAccountId) {
           await db.pool.query(
-            "UPDATE accounts SET subscription_status = CASE WHEN subscription_status='active' THEN 'disconnected_active' ELSE 'disconnected' END, access_token='', refresh_token='', updated_at=now() WHERE jobber_account_id = $1",
+            "UPDATE accounts SET subscription_status = CASE WHEN subscription_status='active' THEN 'disconnected_active' ELSE 'disconnected' END, access_token='', refresh_token='', updated_at=now() WHERE jobber_account_id = $1 AND updated_at < now() - interval '2 minutes'",
             [jobberAccountId]
           );
           console.log('APP_DISCONNECT processed for', jobberAccountId);
@@ -240,6 +244,10 @@ async function handle(req, res) {
     if (!report) return sendHtml(res, 404, renderError('Report not found.'));
     if (report.status === 'pending') return sendHtml(res, 200, renderPending(report.id));
     if (report.status === 'error') return sendHtml(res, 200, renderError('We could not finish reading this account: ' + (report.error || 'unknown error')));
+    if (report.subscription_status !== 'active') {
+      const seats = await db.pool.query("SELECT count(*)::int AS n FROM accounts WHERE plan = 'founding' AND subscription_status IN ('active','disconnected_active')");
+      report.foundingSeatsLeft = Math.max(0, 20 - seats.rows[0].n);
+    }
     return sendHtml(res, 200, renderReport(report));
   }
 
